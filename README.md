@@ -1,10 +1,10 @@
-# 📡 Tech & Engineering Talent Radar
+# 📡 Tech & Engineering Talent Radar v4
 
-**SCTP Group 6** — Competitive Intelligence for Singapore's Tech & Engineering Sectors
+**SCTP Group 6** — Strategic Intelligence for Singapore's Tech & Engineering Sectors
 
 ## Overview
 
-A Streamlit dashboard that provides deep market intelligence on Singapore's IT and Engineering job market. Instead of analyzing the entire generic job market, we focus on the **26% of listings** where job titles encode specific technical skills — enabling precise skill-demand and salary analysis without job descriptions.
+A Streamlit dashboard that provides **B2B market intelligence** for CTOs, investors, and recruiters. We don't just tell you who is hiring — we tell you **how much it costs** and **how hard it is to hire**.
 
 ### The Core Insight
 
@@ -12,15 +12,29 @@ In IT and Engineering, the **skill is in the title**:
 - ❌ Vague: "Sales Manager" (what do they sell?)
 - ✅ Specific: "Senior Python Developer", "Civil Engineer (Tunnelling)", "AWS Cloud Architect"
 
-By applying **regex pattern matching** on job titles, we extract 11 tech stack categories directly — bypassing the missing job description limitation.
+By applying **regex pattern matching** on job titles, we extract 11 tech stack categories — bypassing the missing job description limitation.
 
-## Dashboard Views
+### What's New in v4: The Talent Scarcity Index
 
-| Tab | What It Shows |
-|-----|---------------|
-| 💰 **Value (Salary)** | Box plot of salary distributions by tech stack — which skills pay the most? |
-| 📈 **Demand (Volume)** | Line chart of hiring trends over time by tech stack |
-| 🏢 **Competition (Strategy)** | Top 10 companies and what stacks they're hiring for |
+Previous versions showed **Cost** (salary). v4 adds **Feasibility** (application counts) — answering the most important hiring question: *"How hard and expensive is it to fill this role?"*
+
+## Dashboard Tabs
+
+| Tab | What It Shows | Business Question |
+|-----|---------------|-------------------|
+| 💰 **Salary (Price)** | Box plot of salary distributions by tech stack | "What does this talent cost?" |
+| 📈 **Demand (Volume)** | Hiring trends over time by tech stack | "Is demand growing or shrinking?" |
+| ⚠️ **Scarcity (Supply)** | Avg applicants per role — color-coded heatmap | "How hard is it to find this talent?" |
+| 🎯 **The Quadrant (Strategy)** | Cost vs. Difficulty bubble chart | "Where should I invest my hiring budget?" |
+
+### The "Quadrant of Pain"
+
+The killer feature — a scatter plot mapping **Salary (Cost)** vs **Applicants (Ease of Hire)**:
+
+- **Bottom Right (High Pay, Low Apps):** 🔴 "Danger Zone" — Hardest to hire, most expensive. Action: Headhunt.
+- **Top Left (Low Pay, High Apps):** 🟢 "Value Zone" — Easy to find, affordable. Action: Post ads.
+- **Bottom Left (Low Pay, Low Apps):** ⚠️ Niche roles with supply issues.
+- **Top Right (High Pay, High Apps):** 💰 Premium roles with healthy supply.
 
 ## Tech Stack Categories
 
@@ -48,19 +62,20 @@ pip install streamlit pandas plotly
 
 ### Step 1: Process Your Data
 
-Place your raw CSV file (1M+ rows) in this folder and rename it to `tech_talent_radar.csv`, then run:
+Place your raw CSV (1M+ rows) in this folder, rename to `tech_talent_radar.csv`, then run:
 
 ```bash
-python data_processor_v3.py
+python data_processor_v4.py
 ```
 
 This will:
-1. Parse the JSON `categories` column (e.g. `[{"id":21,"category":"Information Technology"}]`)
-2. Filter for **IT & Engineering** rows only (~26% of data)
-3. Rename columns to standard names (`title` → `job_title`, `postedCompany_name` → `company`, etc.)
-4. Tag each job with a **Tech Stack** using regex
-5. Clean salary data
-6. Output a compressed `tech_talent_radar_final.zip` (~90% smaller)
+1. Parse the JSON `categories` column
+2. Filter for **IT & Engineering** rows only
+3. Rename columns to standard names
+4. Tag each job with a **Tech Stack** via regex
+5. Extract **application counts** (`metadata_totalNumberJobApplication` → `num_applications`)
+6. Clean salary data
+7. Output `tech_talent_radar_final_v4.zip`
 
 ### Step 2: Run the Dashboard
 
@@ -68,44 +83,50 @@ This will:
 streamlit run app.py
 ```
 
-The dashboard loads `tech_talent_radar_final.zip` directly and launches in your browser.
-
 ## Raw Dataset Column Mapping
-
-The processor handles the following raw CSV structure:
 
 | Raw Column | Mapped To | Notes |
 |-----------|-----------|-------|
 | `title` | `job_title` | Job title string |
-| `categories` | `category` | JSON array → parsed to "Information Technology" or "Engineering" |
+| `categories` | `category` | JSON → "Information Technology" or "Engineering" |
 | `postedCompany_name` | `company` | Company name |
 | `salary_minimum` | `salary_min` | Monthly salary floor |
 | `salary_maximum` | `salary_max` | Monthly salary ceiling |
-| `average_salary` | `salary_avg` | Computed average (filled from min/max if missing) |
+| `average_salary` | `salary_avg` | Computed average |
 | `metadata_newPostingDate` | `date` | Posting date |
+| `metadata_totalNumberJobApplication` | `num_applications` | **NEW in v4** — applicant count per role |
 
 ## Project Files
 
 | File | Purpose |
 |------|---------|
-| `app.py` | Streamlit dashboard (final version) |
-| `data_processor_v3.py` | Raw CSV → optimized ZIP pipeline |
-| `tech_talent_radar_final.zip` | Processed data (generated by processor) |
+| `app.py` | Streamlit dashboard v4 (4 strategic tabs) |
+| `data_processor_v4.py` | Raw CSV → optimized ZIP pipeline (with application counts) |
+| `data_processor_v3.py` | Previous version (without scarcity data) |
+| `app_recommender.py` | AI job recommender (separate B2C tool, not merged) |
+| `tech_talent_radar_final_v4.zip` | Processed data (generated by processor) |
 | `requirements.txt` | Python dependencies |
+
+## Architecture Decision: Why Not Merge the Recommender?
+
+The `app_recommender.py` is a **B2C Job Recommender** (for job seekers). The main dashboard is a **B2B Market Intelligence Tool** (for CTOs & investors). Merging them would dilute the value proposition.
+
+Instead, we **extracted the key insight** from the recommender — application count data — and built the **Talent Scarcity Index**, which serves the B2B audience far better.
 
 ## Methodology
 
-1. **Filter:** Keep only IT & Engineering categories (parsed from JSON)
-2. **Extract:** Regex scan job titles for 11 tech stack patterns
-3. **Analyze:** Salary distributions, demand trends, company hiring strategies
-4. **Visualize:** Interactive Plotly charts in Streamlit
+1. **Filter:** IT & Engineering categories (parsed from JSON)
+2. **Extract:** Regex scan titles for 11 tech stack patterns
+3. **Enrich:** Application counts as a proxy for talent supply
+4. **Analyze:** Salary × Scarcity quadrant analysis
+5. **Visualize:** Interactive Plotly charts in Streamlit
 
 ## Business Questions Answered
 
-- **For CTOs:** "Is it cheaper to hire a Java team or a Python team in Singapore?"
-- **For Recruiters:** "What's the salary premium for Cloud/AWS vs .NET roles?"
-- **For Job Seekers:** "Which tech stacks are growing in demand?"
-- **For Strategists:** "What technologies are DBS, Grab, and GovTech investing in?"
+- **For CTOs:** "Should I build a Python team or a Java team? Which is cheaper AND easier to staff?"
+- **For Investors:** "Which tech sectors have talent bottlenecks that could slow company growth?"
+- **For Recruiters:** "Where should I focus sourcing efforts — which roles are hardest to fill?"
+- **For Strategists:** "What's the cost-difficulty tradeoff for each technology?"
 
 ## Tech Stack
 
@@ -113,4 +134,4 @@ Python · Streamlit · Pandas · Plotly · Regex
 
 ---
 
-**Project Group 6** | SCTP Data Science | Singapore Job Market Intelligence
+**Project Group 6** | SCTP Data Science | Singapore Job Market Strategic Intelligence
