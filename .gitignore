@@ -1,7 +1,12 @@
 __pycache__/
 *.pyc
 .env
-*.csv
-!requirements.txt
 .streamlit/
 venv/
+
+# Raw data (too large for GitHub - run data_processor_v4.py to generate)
+tech_talent_radar.csv
+SGJobData.csv
+
+# Processed data (upload separately or generate locally)
+# tech_talent_radar_final_v4.zip is committed when available

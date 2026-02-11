@@ -32,7 +32,7 @@ def parse_categories(val):
             data = json.loads(val)
             return [item.get('category', '') for item in data]
         return []
-    except:
+    except (json.JSONDecodeError, KeyError, TypeError, AttributeError):
         return []
 
 def get_tech_stack(title):
@@ -48,7 +48,7 @@ def clean_numeric(val):
     try:
         clean_str = re.sub(r'[^\d.]', '', str(val))
         return float(clean_str)
-    except:
+    except (ValueError, TypeError):
         return np.nan
 
 def process():
