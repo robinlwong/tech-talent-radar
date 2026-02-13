@@ -1,0 +1,158 @@
+import pandas as pd
+import numpy as np
+import re
+import plotly.express as px
+import os
+
+# ==========================================
+# CONFIGURATION
+# ==========================================
+INPUT_FILE = "tech_talent_radar.csv"       
+OUTPUT_FILE = "tech_talent_radar_opt.zip"  
+
+# Define your "Killer Feature" Keywords (The Tech Stacks)
+TECH_KEYWORDS = {
+    'Python': r'\bpython\b',
+    'Java': r'\bjava\b',
+    'React/JS': r'\b(react|node|javascript|typescript|vue)\b',
+    'Cloud/AWS': r'\b(aws|azure|cloud|gcp)\b',
+    'Data/AI': r'\b(data|ai|machine learning|nlp|torch|tensorflow)\b',
+    'Cybersecurity': r'\b(cyber|security)\b',
+    'DevOps': r'\b(devops|sre|ci/cd|kubernetes)\b',
+    '.NET/C#': r'\b(\.net|c#)\b',
+    'Civil/Struct': r'\b(civil|structural|tunnel)\b',
+    'Mechanical': r'\b(mechanical|hvac)\b'
+}
+
+def clean_salary(val):
+    """Parses salary strings (e.g., '$5,000') into floats."""
+    try:
+        # Remove anything that isn't a digit or a decimal point
+        clean_str = re.sub(r'[^\d.]', '', str(val))
+        return float(clean_str) if clean_str else np.nan
+    except:
+        return np.nan
+
+def get_tech_stack(title):
+    """Scans title for keywords to assign a 'Stack'."""
+    title = str(title).lower()
+    for stack, pattern in TECH_KEYWORDS.items():
+        if re.search(pattern, title):
+            return stack
+    return None  # Return None if no match found
+
+def process_dataset():
+    # 1. Check if file exists
+    if not os.path.exists(INPUT_FILE):
+        print(f"❌ Error: The file '{INPUT_FILE}' was not found.")
+        print("   Please ensure it is in the same folder as this script.")
+        return
+
+    print(f"🔄 Loading {INPUT_FILE} (this may take a moment)...")
+    
+    # 2. Load Data
+    try:
+        df = pd.read_csv(INPUT_FILE, low_memory=False)
+    except Exception as e:
+        print(f"❌ Error reading CSV: {e}")
+        return
+    
+    print(f"   Original Rows: {len(df)}")
+
+    # 3. Filter for Target Sectors (IT & Engineering)
+    print("   Filtering for IT & Engineering...")
+    target_sectors = ['Information Technology', 'Engineering']
+    
+    # Handle Column Naming (Find the 'Category' column)
+    cat_col = 'category'
+    if cat_col not in df.columns:
+        candidates = [c for c in df.columns if 'cat' in c.lower() or 'ind' in c.lower()]
+        if candidates:
+            cat_col = candidates[0]
+            print(f"   ⚠️ 'category' column not found. Using '{cat_col}' instead.")
+        else:
+            print("   ❌ Critical Error: Could not find a Category/Industry column.")
+            print(f"   Available columns: {list(df.columns)}")
+            return
+
+    # NaN-safe filtering mask
+    mask = df[cat_col].apply(
+        lambda x: any(s.lower() in str(x).lower() for s in target_sectors) 
+        if pd.notnull(x) else False
+    )
+
+    df_filtered = df[mask].copy()
+
+    # Rename category column to standard 'category' for the dashboard
+    df_filtered.rename(columns={cat_col: 'category'}, inplace=True)
+    
+    print(f"   ✅ Filtered Rows: {len(df_filtered)} (Reduced by {100 - int(len(df_filtered)/len(df)*100)}%)")
+
+    # 4. Scan Titles (The "Market Scan")
+    print("\n📊 Top 20 Most Common Job Titles:")
+    
+    # Try to find the job title column automatically
+    job_col = 'job_title'
+    if job_col not in df_filtered.columns:
+        candidates = [c for c in df_filtered.columns if 'title' in c.lower() or 'job' in c.lower()]
+        if candidates:
+            job_col = candidates[0]
+            print(f"   ⚠️ 'job_title' not found. Using '{job_col}' instead.")
+        else:
+            print("   ❌ Critical Error: Could not find a Job Title column.")
+            print(f"   Available columns: {list(df_filtered.columns)}")
+            return
+
+    # Now use the found column name safely
+    print(df_filtered[job_col].value_counts().head(20))
+    print("-" * 50)
+
+    # 5. Clean Salaries & Tag Stacks
+    print("   Cleaning salaries and tagging skills...")
+    
+    # Apply Keyword Tagging using the dynamic column name
+    df_filtered['Tech_Stack'] = df_filtered[job_col].apply(get_tech_stack)
+    
+    # Normalize salary column names
+    if 'min_salary' in df_filtered.columns:
+        df_filtered.rename(columns={'min_salary': 'salary_min', 'max_salary': 'salary_max'}, inplace=True)
+    
+    # Ensure salary columns exist
+    if 'salary_min' in df_filtered.columns:
+        df_filtered['salary_min'] = df_filtered['salary_min'].apply(clean_salary)
+        df_filtered['salary_max'] = df_filtered['salary_max'].apply(clean_salary)
+        df_filtered['salary_avg'] = (df_filtered['salary_min'] + df_filtered['salary_max']) / 2
+    else:
+        print("   ⚠️ Warning: Salary columns not found. Skipping salary analysis.")
+        df_filtered['salary_avg'] = np.nan
+
+    # 6. Build "Stack vs Salary" Chart
+    print("   Generating 'Stack vs Salary' Chart...")
+    df_chart = df_filtered.dropna(subset=['salary_avg', 'Tech_Stack'])
+    
+    if not df_chart.empty:
+        fig = px.box(df_chart, x='Tech_Stack', y='salary_avg', 
+                     color='Tech_Stack', 
+                     title="Tech Stack vs Salary (The Killer Feature)",
+                     points=False)
+        fig.write_html("stack_vs_salary_chart.html")
+        print("   ✅ Chart saved as 'stack_vs_salary_chart.html'")
+    else:
+        print("   ⚠️ Not enough data to generate chart.")
+
+    # 7. Save Optimized File
+    print(f"💾 Saving optimized file to {OUTPUT_FILE}...")
+    
+    # Select only useful columns to keep file small
+    # Note: We use 'job_col' for the title to be safe, but rename it to 'job_title' for the final CSV
+    df_filtered.rename(columns={job_col: 'job_title'}, inplace=True)
+    
+    cols_to_keep = ['job_title', 'company', 'category', 'salary_min', 'salary_max', 'salary_avg', 'date', 'Tech_Stack']
+    final_cols = [c for c in cols_to_keep if c in df_filtered.columns]
+    
+    # Save as ZIP (Pandas handles compression automatically)
+    df_filtered[final_cols].to_csv(OUTPUT_FILE, index=False, compression='zip')
+    print(f"✅ Success! Created {OUTPUT_FILE} (Ready for Dashboard)")
+
+if __name__ == "__main__":
+    process_dataset()

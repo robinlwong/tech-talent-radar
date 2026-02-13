@@ -109,8 +109,8 @@ streamlit run app.py
 ### About the Data File
 
 The raw dataset (`tech_talent_radar.csv`, ~256MB, 1M+ rows) is too large for GitHub. To run locally:
-1. Obtain the raw CSV from your team's shared drive
-2. Rename to `tech_talent_radar.csv`
+1. Obtain the raw CSV from your team's shared drive `SGJobData.csv`
+2. Rename to `tech_talent_radar.csv`, hit F2 with the file selected from Windows subsystems
 3. Run `python data_processor_v4.py` to generate the ZIP
 4. The processed `tech_talent_radar_final_v4.zip` is committed to the repo when available
 
@@ -148,6 +148,9 @@ Instead, we **extracted the key insight** from the recommender — application c
 ## Tech Stack
 
 Python · Streamlit · Pandas · Plotly · Regex
+
+## Changelog:
+2026-02-13T21:19:38Z robinlwong: Added .DS_Store and logs/ & outputs/ to .gitignore
 
 ---
 

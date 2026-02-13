@@ -1,0 +1,207 @@
+import streamlit as st
+import pandas as pd
+import numpy as np
+import re
+import plotly.express as px
+import plotly.graph_objects as go
+from datetime import datetime, timedelta
+
+# ==========================================
+# 1. CONFIGURATION & DATA GENERATION (MOCK)
+# ==========================================
+st.set_page_config(page_title="Tech & Eng Talent Radar", layout="wide")
+
+@st.cache_data
+def load_data():
+    """
+    Simulates the dataset since we don't have the 1M row CSV loaded.
+    Replace this function with pd.read_csv('your_file.csv') in production.
+    """
+    # Create dates for the last 12 months
+    dates = [datetime.today() - timedelta(days=x) for x in range(365)]
+    
+    # Mock Titles combining Seniority + Skill + Role
+    seniority = ['Junior', 'Senior', 'Lead', 'Principal', 'Intern', 'Head of']
+    
+    it_skills = ['Python', 'Java', 'React', 'AWS', 'Node.js', 'Data', 'Cybersecurity', 'DevOps', 'C++', '.NET']
+    it_roles = ['Developer', 'Engineer', 'Architect', 'Analyst', 'Scientist']
+    
+    eng_skills = ['Civil', 'Mechanical', 'Electrical', 'Structural', 'Chemical', 'Process', 'Project']
+    eng_roles = ['Engineer', 'Manager', 'Technician', 'Consultant']
+    
+    companies = ['DBS Bank', 'Shopee', 'ByteDance', 'Grab', 'Micron', 'Keppel', 'Sembcorp', 'GovTech', 'Stripe', 'Google']
+    
+    data = []
+    
+    # Generate 2000 random IT rows
+    for _ in range(2000):
+        s = np.random.choice(seniority)
+        k = np.random.choice(it_skills)
+        r = np.random.choice(it_roles)
+        title = f"{s} {k} {r}"
+        
+        # Logic: Senior/Lead pays more, Python/AWS pays more than .NET
+        base_pay = 4000
+        if s in ['Senior', 'Lead', 'Principal', 'Head of']: base_pay += 4000
+        if k in ['Python', 'AWS', 'Data']: base_pay += 1500
+        
+        data.append({
+            'job_title': title,
+            'company': np.random.choice(companies),
+            'category': 'Information Technology',
+            'salary_min': base_pay + np.random.randint(-500, 500),
+            'salary_max': base_pay + 3000 + np.random.randint(-500, 500),
+            'date': np.random.choice(dates)
+        })
+
+    # Generate 2000 random Engineering rows
+    for _ in range(2000):
+        s = np.random.choice(seniority)
+        k = np.random.choice(eng_skills)
+        r = np.random.choice(eng_roles)
+        title = f"{s} {k} {r}"
+        
+        base_pay = 3500
+        if s in ['Senior', 'Lead', 'Head of']: base_pay += 3500
+        if k in ['Structural', 'Process']: base_pay += 1000
+        
+        data.append({
+            'job_title': title,
+            'company': np.random.choice(companies),
+            'category': 'Engineering',
+            'salary_min': base_pay + np.random.randint(-500, 500),
+            'salary_max': base_pay + 2500 + np.random.randint(-500, 500),
+            'date': np.random.choice(dates)
+        })
+        
+    df = pd.DataFrame(data)
+    df['salary_avg'] = (df['salary_min'] + df['salary_max']) / 2
+    return df
+
+# Load the data
+df = load_data()
+
+# ==========================================
+# 2. THE STRATEGY ENGINE (REGEX LOGIC)
+# ==========================================
+
+# Define Keyword Dictionaries (The "Secret Sauce")
+it_keywords = {
+    'Python': r'\bpython\b',
+    'Java': r'\bjava\b',
+    'React/JS': r'\b(react|node|javascript|typescript|vue)\b',
+    'Cloud/AWS': r'\b(aws|azure|cloud|gcp)\b',
+    'Data/AI': r'\b(data|ai|machine learning|nlp|torch)\b',
+    'Cybersecurity': r'\b(cyber|security)\b',
+    'DevOps': r'\b(devops|sre|ci/cd)\b',
+    '.NET/C#': r'\b(\.net|c#)\b'
+}
+
+eng_keywords = {
+    'Civil/Structural': r'\b(civil|structural|tunnel|bridge)\b',
+    'Mechanical': r'\b(mechanical|hvac|piping)\b',
+    'Electrical': r'\b(electrical|power|high voltage)\b',
+    'Chemical/Process': r'\b(chemical|process|pharmaceutical)\b',
+    'Marine/Offshore': r'\b(marine|offshore|naval)\b'
+}
+
+def extract_skills(row):
+    """Scans title against dictionaries based on Category"""
+    title = str(row['job_title']).lower()
+    found = []
+    
+    # Select dictionary based on category
+    target_dict = it_keywords if row['category'] == 'Information Technology' else eng_keywords
+    
+    for skill, pattern in target_dict.items():
+        if re.search(pattern, title):
+            found.append(skill)
+            
+    return found if found else ['General/Management']
+
+# Apply extraction
+df['Skills'] = df.apply(extract_skills, axis=1)
+
+# Explode: If a job is "Python AWS Dev", it creates two rows: one for Python, one for AWS
+df_exploded = df.explode('Skills')
+
+# ==========================================
+# 3. DASHBOARD LAYOUT
+# ==========================================
+
+st.title("📡 Tech & Engineering Talent Radar")
+st.markdown("""
+**Team 6 Strategy:** By filtering for IT & Engineering (26% of market), we utilize specific job titles 
+as high-fidelity proxies for skills, bypassing the lack of job descriptions.
+""")
+
+# --- Sidebar Filters ---
+st.sidebar.header("Filter Strategy")
+selected_category = st.sidebar.radio("Select Sector:", ["Information Technology", "Engineering"])
+selected_companies = st.sidebar.multiselect("Benchmark Companies:", df['company'].unique(), default=df['company'].unique()[:5])
+
+# Filter Data
+filtered_df = df_exploded[
+    (df_exploded['category'] == selected_category) & 
+    (df_exploded['company'].isin(selected_companies))
+]
+
+# --- KPI Row ---
+c1, c2, c3 = st.columns(3)
+c1.metric("Total Active Roles", f"{len(filtered_df)}")
+c2.metric("Avg Market Salary", f"${int(filtered_df['salary_avg'].mean())}")
+top_skill = filtered_df['Skills'].mode()[0]
+c3.metric("Most In-Demand Skill", top_skill)
+
+st.divider()
+
+# --- TAB VIEW ---
+tab1, tab2, tab3 = st.tabs(["📈 Market Demand (Volume)", "💰 Salary Arbitrage (Value)", "🏢 Corporate Strategy (Competitors)"])
+
+# View 1: Demand Trends
+with tab1:
+    st.subheader(f"The 'Language War' in {selected_category}")
+    
+    # Group by Date (Month) and Skill
+    trend_data = filtered_df.groupby([pd.Grouper(key='date', freq='M'), 'Skills']).size().reset_index(name='Count')
+    
+    fig_trend = px.line(trend_data, x='date', y='Count', color='Skills', 
+                        title="Skill Demand Over Time", markers=True)
+    st.plotly_chart(fig_trend, use_container_width=True)
+    
+    st.info("💡 **Insight:** Rising lines indicate a tech stack that is gaining market share. Falling lines suggest legacy tech.")
+
+# View 2: Salary Analysis
+with tab2:
+    st.subheader("Which Skills Command a Premium?")
+    
+    # Calculate median salary per skill to sort the boxplot
+    order = filtered_df.groupby('Skills')['salary_avg'].median().sort_values(ascending=False).index
+    
+    fig_box = px.box(filtered_df, x='Skills', y='salary_avg', color='Skills',
+                     category_orders={'Skills': order},
+                     title="Salary Distribution by Skill Set")
+    st.plotly_chart(fig_box, use_container_width=True)
+    
+    st.info("💡 **Insight:** The 'spread' (height of the box) shows volatility. A high median with a tight box means consistently high pay.")
+
+# View 3: Competitor Strategy
+with tab3:
+    st.subheader("What are your competitors building?")
+    
+    # Heatmap or Stacked Bar of Company vs Skill
+    strategy_data = filtered_df.groupby(['company', 'Skills']).size().reset_index(name='Job Count')
+    
+    fig_bar = px.bar(strategy_data, x='company', y='Job Count', color='Skills', 
+                     title="Hiring Strategy by Company (Stacked)", barmode='stack')
+    st.plotly_chart(fig_bar, use_container_width=True)
+    
+    st.write("### Skill Share Table")
+    pivot = filtered_df.groupby(['company', 'Skills']).size().unstack().fillna(0)
+    st.dataframe(pivot.style.background_gradient(cmap="Blues"))
+
+# ==========================================
+# 4. FOOTER & EXPORT
+# ==========================================
+st.divider()
+st.caption("Project Group 6 | Data Source: Simulated SG Job Postings | Methodology: Regex Title Extraction")
