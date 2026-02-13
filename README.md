@@ -62,7 +62,7 @@ pip install streamlit pandas plotly
 
 ### Step 1: Process Your Data
 
-Place your raw CSV (1M+ rows) in this folder, rename to `tech_talent_radar.csv`, then run:
+Place your raw CSV `SGJobData.csv` (1M+ rows) in this folder, rename to `tech_talent_radar.csv`, then run:
 
 ```bash
 python data_processor_v4.py
