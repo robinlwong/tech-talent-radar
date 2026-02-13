@@ -12,6 +12,11 @@ SGJobData.csv
 
 # Processed data (upload separately or generate locally)
 # tech_talent_radar_final_v4.zip is committed when available, but you can also generate it locally using data_processor_v4.py
+
 # Logs and outputs
 logs/
 outputs/
+
+# Windows system files
+desktop.ini
+*[Zz]one.[Ii]dentifier
